@@ -1,0 +1,7 @@
+---
+test:
+  hosts:
+    centos-6:
+      ansible_port: 2200
+      ansible_host: localhost
+
