@@ -55,7 +55,7 @@ Vagrant.configure("2") do |config|
   #
   # Customize the amount of memory on the VM:
      vb.memory = "4096"
-     vb.name = "vagrant-test"
+     vb.name = "vagrant-centos-6-#BUILD_NUMBER"
   end
   #
   # View the documentation for the provider you are using for more
