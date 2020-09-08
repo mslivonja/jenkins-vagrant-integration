@@ -7,10 +7,14 @@
     java:
       install_file: j2sdk-1_4_2_02-linux-i586.bin
       install_folder: /opt/java      
+    
+    ant:
+      install_file: apache-ant-1.5.3-1-bin.zip 
 
     dependencies:
       - libselinux-python 
       - glibc.i686  
+      - unzip
 
     users:
       - java
@@ -49,7 +53,7 @@
       - debug:
           msg: "Java already installed {{ java_installed }} "
 
-      - name: Copy install. file to install folder
+      - name: Copy JDK install. file to install folder
         copy:
           src: "files/{{ java.install_file }}"
           dest: "{{ java.install_folder }}"
@@ -123,12 +127,71 @@
         become: true
         become_user: java    
 
-      - name: Set PATH env. for user 'java'
+      - name: Export JAVA_HOME env. var
+        lineinfile:
+          path: ~/.bash_profile
+          line: export JAVA_HOME
+          regexp: "export JAVA_HOME"
+          insertafter: JAVA_HOME=
+        become: true
+        become_user: java  
+
+      - name: Set PATH env. for JDK
         lineinfile:
           path: ~/.bash_profile
           line: PATH=$PATH:$JAVA_HOME/bin
           state: present
+          insertbefore: export JAVA_HOME
+        become: true
+        become_user: java
+
+      - name: Check if Ant was already installed - *ant* folder exists
+        find:
+          paths: "{{ java.install_folder }}"
+          patterns: "*ant*"
+          file_type: directory
+        register: find_result
+
+      - set_fact:
+          ant_installed: "{{ find_result.matched > 0 }}"
+
+      - debug:
+          msg: "Ant already installed {{ ant_installed }} "
+
+      - name: Copy/Unzip Ant distribution
+        unarchive:
+          src: "/vagrant/files/{{ ant.install_file}}"
+          dest: "{{ java.install_folder }}"
+          remote_src: yes
+          owner: java
+          group: java      
+        when: not ant_installed
+
+      - name: Find where Ant was installed
+        find:
+          paths: "{{ java.install_folder }}"
+          patterns: "*ant*"
+          file_type: directory
+        register: find_result
+
+      - debug:
+          msg: "Ant install. path {{ find_result.files[0].path }}"
+
+      - name: Set ANT_HOME env. for user java
+        lineinfile:
+          path: ~/.bash_profile
+          line: ANT_HOME={{ find_result.files[0].path }}
+          regexp: "^ANT_HOME="
           insertbefore: export PATH
+        become: true
+        become_user: java
+
+      - name: Set PATH env. for ANT
+        lineinfile:
+          path: ~/.bash_profile
+          line: PATH=$PATH:$ANT_HOME/bin
+          state: present
+          insertafter: ANT_HOME=
         become: true
         become_user: java
 
