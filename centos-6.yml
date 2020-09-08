@@ -11,6 +11,9 @@
     ant:
       install_file: apache-ant-1.5.3-1-bin.zip 
 
+    maven:
+      install_file: maven-1.1.tar.gz 
+
     dependencies:
       - libselinux-python 
       - glibc.i686  
@@ -192,6 +195,56 @@
           line: PATH=$PATH:$ANT_HOME/bin
           state: present
           insertafter: ANT_HOME=
+        become: true
+        become_user: java
+
+      - name: Check if Maven was already installed - *maven* folder exists
+        find:
+          paths: "{{ java.install_folder }}"
+          patterns: "*maven*"
+          file_type: directory
+        register: find_result
+
+      - set_fact:
+          maven_installed: "{{ find_result.matched > 0 }}"
+
+      - debug:
+          msg: "Maven already installed {{ ant_installed }} "
+
+      - name: Copy/Unzip Maven distribution
+        unarchive:
+          src: "/vagrant/files/{{ maven.install_file}}"
+          dest: "{{ java.install_folder }}"
+          remote_src: yes
+          owner: java
+          group: java
+        when: not maven_installed
+
+      - name: Find where Maven was installed
+        find:
+          paths: "{{ java.install_folder }}"
+          patterns: "*maven*"
+          file_type: directory
+        register: find_result
+
+      - debug:
+          msg: "Maven install. path {{ find_result.files[0].path }}"
+
+      - name: Set MAVEN_HOME env. for user java
+        lineinfile:
+          path: ~/.bash_profile
+          line: MAVEN_HOME={{ find_result.files[0].path }}
+          regexp: "^MAVEN_HOME="
+          insertbefore: export PATH
+        become: true
+        become_user: java
+
+      - name: Set PATH env. for MAVEN
+        lineinfile:
+          path: ~/.bash_profile
+          line: PATH=$PATH:$MAVEN_HOME/bin
+          state: present
+          insertafter: MAVEN_HOME=
         become: true
         become_user: java
 
