@@ -1,0 +1,6 @@
+---
+java:
+  install_file: j2sdk-1_4_2_02-linux-i586.bin
+
+  dependencies:
+    - glibc.i686

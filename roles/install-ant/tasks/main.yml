@@ -1,0 +1,57 @@
+---
+###########################################################################
+# tasks for linux Ant Role that installs Ant 1.5.3 in a RHEL 6 system
+###########################################################################
+- name: Install Ant required dependencies
+  yum:
+    name: "{{ item }}"
+  loop: "{{ ant.dependencies }}"
+
+- name: Check if Ant was already installed - *ant* folder exists
+  find:
+    paths: "{{ java.install_folder }}"
+    patterns: "*ant*"
+    file_type: directory
+  register: find_result
+
+- set_fact:
+    ant_installed: "{{ find_result.matched > 0 }}"
+
+- debug:
+    msg: "Ant already installed {{ ant_installed }} "
+
+- name: Copy/Unzip Ant distribution
+  unarchive:
+    src: "files/{{ ant.install_file}}"
+    dest: "{{ java.install_folder }}"
+    owner: "{{ java.user }}"
+    group: "{{ java.user }}"      
+  when: not ant_installed
+
+- name: Find where Ant was installed
+  find:
+    paths: "{{ java.install_folder }}"
+    patterns: "*ant*"
+    file_type: directory
+  register: find_result
+
+- debug:
+    msg: "Ant install. path {{ find_result.files[0].path }}"
+
+- name: Set ANT_HOME env. for user java
+  lineinfile:
+    path: ~/.bash_profile
+    line: ANT_HOME={{ find_result.files[0].path }}
+    regexp: "^ANT_HOME="
+    insertbefore: export PATH
+  become: true
+  become_user: "{{ java.user }}"
+
+- name: Set PATH env. for ANT
+  lineinfile:
+    path: ~/.bash_profile
+    line: PATH=$PATH:$ANT_HOME/bin
+    state: present
+    insertafter: ANT_HOME=
+  become: true
+  become_user: "{{ java.user }}"

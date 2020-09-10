@@ -1,0 +1,123 @@
+---
+###########################################################################
+# tasks for linux jdk Role that installs JDK 1.4.2_02 in a RHEL 6 system
+###########################################################################
+
+- name: Install JDK 1.4.2_02 required dependencies
+  yum:
+    name: "{{ item }}"
+  loop: "{{ java.dependencies }}"
+
+- name: Ensure that required user exist
+  user:
+    name: "{{ java.user }}"
+    state: present
+
+- name: Check if Java 1.4 was already installed - j*sdk* folder exists
+  find:
+    paths: "{{ java.install_folder }}"
+    patterns: "j*sdk*"
+    file_type: directory
+  register: find_result
+
+- set_fact:
+    java_installed: "{{ find_result.matched > 0 }}"
+
+- debug:
+    msg: "Java already installed '{{ java_installed }}' "
+
+- name: Copy JDK install. file to install folder
+  copy:
+    src: "files/{{ java.install_file }}"
+    dest: "{{ java.install_folder }}/"
+    owner: "{{ java.user }}"
+    group: "{{ java.user }}"
+    mode: u+x
+  register: result
+  when: not java_installed
+
+- set_fact:
+    install_from_file: "{{ result is not skipped}}"
+
+- debug:
+    msg: "Install Java from file '{{ install_from_file }}'"
+
+- name: Fix install file
+  command:
+    chdir: "{{ java.install_folder }}"
+    cmd: "sed -i 's/tail +/tail -n +/g' {{ java.install_file }}"
+  become: true
+  become_user: "{{ java.user }}"
+  when: install_from_file
+
+- name: Modify install file - Set Agreement to 1/true
+  lineinfile:
+    path: "{{ java.install_folder }}/{{ java.install_file }}"
+    regexp: "^agreed="
+    line: "agreed=1"
+  become: true
+  become_user: "{{ java.user }}"
+  when: install_from_file
+
+- name: Modify install file - Remove more agreement section from install 
+  command:
+    chdir: "{{ java.install_folder }}"
+    cmd: "sed -i 's/more <<\"EOF\"/cat <<\"EOF\"/g' {{ java.install_file }}"
+  become: true
+  become_user: "{{ java.user }}"
+  when: install_from_file
+
+- name: Run Java installer
+  command:
+    chdir: "{{ java.install_folder }}"
+    cmd: "./{{ java.install_file }}" 
+  become: true  
+  become_user: "{{ java.user }}"
+  when: install_from_file
+
+- name: Remove install file
+  file:
+    path: "{{ java.install_folder }}/{{ java.install_file }}"
+    state: absent
+  when: install_from_file
+
+- name: Find where Java was installed
+  find:
+    paths: "{{ java.install_folder }}"
+    patterns: "j*sdk*"
+    file_type: directory
+  register: find_result
+
+- debug:
+    msg: "Java install. path '{{ find_result.files[0].path }}'" 
+
+- name: Set JAVA_HOME env. for user java
+  lineinfile:
+    path: ~/.bash_profile
+    line: JAVA_HOME={{ find_result.files[0].path }} 
+    regexp: "^JAVA_HOME="
+    insertbefore: export PATH
+  become: true
+  become_user: "{{ java.user }}"  
+
+- name: Export JAVA_HOME env. var
+  lineinfile:
+    path: ~/.bash_profile
+    line: export JAVA_HOME
+    regexp: "export JAVA_HOME"
+    insertafter: JAVA_HOME=
+  become: true
+  become_user: "{{ java.user }}"  
+
+- name: Set PATH env. for JDK
+  lineinfile:
+    path: ~/.bash_profile
+    line: PATH=$PATH:$JAVA_HOME/bin
+    state: present
+    insertbefore: export JAVA_HOME
+  become: true
+  become_user: "{{ java.user }}"
+
+    
+
+

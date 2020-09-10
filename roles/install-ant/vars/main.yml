@@ -1,0 +1,6 @@
+---
+ant:
+  install_file: apache-ant-1.5.3-1-bin.zip
+  
+  dependencies:
+    - unzip
